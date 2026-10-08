@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: phish-tank-server
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: '20'
+      - key: CLIENT_ORIGINS
+        sync: false
+      - key: TRUST_PROXY_HOPS
+        value: '1'

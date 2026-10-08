@@ -2,88 +2,93 @@
 
 An original cybersecurity party game with a Neon Terminal Arcade identity. All identities and scam messages are fictional training content.
 
-**Current delivery: Stage 1 — Foundation.** Landing, player setup, the design system, and shared contracts are implemented. This is not yet a playable multiplayer game. Live rooms, game phases, bots, and results follow the approval gates in [SPEC.md](SPEC.md). The setup form explicitly saves a local profile; it does not create a pretend room.
+**Current delivery: Stage 2 — Server and Lobby.** Create and join real rooms, share links and QR codes, change host settings, ready up, reconnect, transfer host, watch as a spectator and open a synchronized Big Screen. The full game is not complete: Start stays disabled until the gameplay stages are built, and bots arrive in Stage 6. See [SPEC.md](SPEC.md) and [PROGRESS.md](PROGRESS.md).
 
 ## Run locally
 
-Use Node **20.19+** and npm. The runtime target is Node 20; the available development host uses Node 24. Keep `package-lock.json` committed.
+Use Node **20.19+** and npm. Tests in this workspace use Node 24; the selected tooling also supports the specification's Node 20 target.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. The Express health endpoint is **http://127.0.0.1:3001/api/health**. Shared contracts compile automatically before development starts and stay under watch alongside the client and server.
+Open **http://127.0.0.1:5173**. Express runs on port **3001**; Vite proxies `/api` and `/socket.io`. Shared contracts compile before development starts and remain under watch alongside the client and server.
 
-Routes:
-
-- `/` — Landing, how-to-play carousel, credits and sound settings.
-- `/join` — Room code, player alias, emoji selection and local profile saving.
-- `/join?code=TIDE` — Prefilled room code.
-- `/join?mode=create` — Host identity preparation.
-- `/components` — Interactive gallery of every Stage 1 UI primitive, with explicitly labeled sample data.
+| Route               | Purpose                                                   |
+| ------------------- | --------------------------------------------------------- |
+| `/`                 | Landing, instructions, credits, global mute               |
+| `/join`             | Join with room code, alias and avatar                     |
+| `/join?mode=create` | Create a room as host                                     |
+| `/join?code=ABCD`   | Prefilled invite                                          |
+| `/room/ABCD`        | Player lobby and session restoration                      |
+| `/screen/ABCD`      | Read-only Big Screen with QR and live reactions           |
+| `/watch/ABCD`       | Spectator view with emoji reactions                       |
+| `/components`       | Interactive UI primitive gallery with labeled sample data |
 
 ## Commands
 
 | Command                | Purpose                                                      |
 | ---------------------- | ------------------------------------------------------------ |
-| `npm run dev`          | Run Vite and Express together                                |
-| `npm run typecheck`    | Strict TypeScript checks across all three packages           |
-| `npm run lint`         | ESLint, zero warnings allowed                                |
-| `npm run test`         | Vitest contract validation tests                             |
+| `npm run dev`          | Run all three packages under watch                           |
+| `npm run typecheck`    | Strict TypeScript checks across the packages                 |
+| `npm run lint`         | ESLint with zero warnings allowed                            |
+| `npm run test`         | Contract, room behavior and real Socket.IO integration tests |
 | `npm run build`        | Build shared contracts, server and client                    |
-| `npm start`            | Serve the production client and health endpoint on port 3001 |
+| `npm start`            | Serve production client and live room server                 |
 | `npm run test:e2e`     | Playwright desktop and 360px mobile tests                    |
-| `npm run format`       | Format the repository with Prettier                          |
-| `npm run format:check` | Verify formatting                                            |
+| `npm run format`       | Apply Prettier                                               |
+| `npm run format:check` | Check formatting                                             |
 
-Before the first browser test, run `npx playwright install chromium`. Alternatively use an installed browser:
+For browser tests, install Chromium once with `npx playwright install chromium`, or use installed Edge:
 
 ```powershell
 $env:PLAYWRIGHT_CHANNEL = 'msedge'
 npm run test:e2e
 ```
 
-Playwright starts the development servers automatically. Screenshots and failure traces are written to `test-results/`; the HTML report is in `playwright-report/`. Both are ignored by Git.
+Playwright starts isolated development servers on **5273 / 3101**, with a larger test-only room quota. Multiple browser contexts use real sockets. Screenshots and failure traces are in `test-results/`, and the HTML report is in `playwright-report/`; both are ignored by Git.
 
-For a production check:
+For a local production check in PowerShell:
 
-```sh
+```powershell
 npm run build
+$env:CLIENT_ORIGINS = 'http://localhost:3001'
 npm start
 ```
 
-Then open **http://localhost:3001**. Deep links use the production SPA fallback. Unknown `/api/*` routes correctly return JSON 404 responses.
+Open **http://localhost:3001**. For other shells, set the same environment variable using that shell's syntax. Deep links have an SPA fallback, and unknown `/api/*` endpoints return JSON 404s.
 
-## Packages and assets
+## Hosting on Vercel
 
-- `client/` — React 18, Vite, TypeScript, Tailwind, Framer Motion, Zustand. Routes are lazy-loaded; Howler and confetti load only on interaction.
-- `server/` — Express runtime foundation. No Socket.IO handlers are exposed in Stage 1.
-- `shared/` — Zod input schemas, event names, acknowledgment types, phases, public snapshots and owner-only state types.
-- `docs/ARCHITECTURE.md` — Boundaries and the typed event contract.
-- `docs/QA.md` — Stage 1 tests and remaining acceptance work.
-- `PROGRESS.md` — Stage decisions, verification results and next steps.
+1. Deploy the room server as **one persistent instance** on Render or Railway. A Render blueprint is in `render.yaml`.
+2. Import this repository in Vercel with the repository root as Root Directory. `vercel.json` specifies the build and `client/dist` output.
+3. Set **`VITE_SERVER_URL`** in Vercel to the backend's public HTTPS URL, then redeploy.
+4. Set **`CLIENT_ORIGINS`** on the backend to the exact Vercel frontend origin, with no trailing slash.
 
-The neon fish and hook are original SVG/CSS artwork. Fonts are self-hosted Google Fonts families (Space Grotesk, Inter, JetBrains Mono), with `font-display: swap`; license files accompany the assets. No third-party font request or analytics runs in the browser.
+See [the deployment guide](docs/DEPLOYMENT.md) for complete configuration and validation. Vercel supports WebSockets, but its distributed instances cannot share this spec's in-memory rooms. The previous serverless Express service configuration has intentionally been replaced by a Vercel frontend plus one persistent backend.
 
-Original synthesized WAV effects are in `client/public/audio/`. Regenerate them with `node scripts/generate-audio.mjs`. Replace files at these names to change the effects: `tap`, `success`, `fail`, `tick`, `reveal`, `crack`, `siren`, `victory`. No music or third-party audio licenses are required for the generated tones. Each sound is loaded on demand; the global mute preference persists locally.
+## Packages and privacy
 
-Only the player alias, emoji, mute preference, and acknowledgment of the training notice persist. No passwords or room secrets exist in Stage 1 browser storage.
+- `client/`: React 18, Vite, strict TypeScript, Tailwind, Framer Motion, Zustand and Socket.IO client. Routes, lobby styling, sounds and confetti load lazily.
+- `server/`: Express and Socket.IO, replaceable RoomStore, identity/host checks, input validation, rate limits, 20-second reconnect grace, idle expiry and state projection.
+- `shared/`: Zod schemas, event names, typed acknowledgments, public snapshots and owner-only data types.
+- [Architecture and contract](docs/ARCHITECTURE.md), [QA tracker](docs/QA.md), [stage progress](PROGRESS.md).
 
-## Environment and deployment
+Only display preferences, a notice acknowledgment and the player's own reconnect credentials persist on the device. Reconnect tokens never appear in public state, URLs, QR codes or logs. The server stores only a token hash. Room data lives in memory and expires after restart, after 30 minutes without meaningful activity, or once every disconnected player has exhausted their grace period. Spectators never count toward the player minimum.
 
-`PORT` configures Express (default `3001`). `NODE_ENV=production` enables production static serving; `npm start` also explicitly enables it. Stage 1 uses same-origin `/api` requests, with Vite proxying them in development, so it needs no permissive CORS middleware.
-
-For a single Render/Railway service, build with `npm ci && npm run build`, start with `npm start`, set `NODE_ENV=production`, and use `/api/health` for health checks. Express binds to `0.0.0.0` and honors the platform's `PORT`.
-
-For a Vercel/Netlify client deployment, build from the repository root with `npm ci && npm run build`, publish `client/dist`, and rewrite non-file application routes to `index.html`. Proxy `/api/*` to the deployed server. The corresponding multiplayer configuration is a **Stage 2/6 requirement**, not implemented yet: an explicit allowed-client-origin list on the server, a configured Socket.IO URL on the client, WSS support, and proxy upgrade/idle-timeout settings. Do not deploy a multiplayer service before those stages pass. Rooms will be in-memory; a restart must expire them rather than imply persistence.
+All artwork is original SVG/CSS. The specified Google Fonts families are hosted locally with `font-display: swap`; licenses accompany the font files. Original synthesized WAV effects are in `client/public/audio/`. Regenerate with `node scripts/generate-audio.mjs`; replace `tap`, `success`, `fail`, `tick`, `reveal`, `crack`, `siren` or `victory` WAV files to customize. Both the host's room-sound setting and each player's own mute are respected. No analytics or trackers run in the browser.
 
 ## Troubleshooting
 
-- If a port is in use, stop the other project instance. Vite uses `strictPort` so a hidden port change cannot break browser tests.
-- If shared imports cannot resolve, run `npm run build -w shared` (normally handled by `postinstall` and `predev`).
-- If Playwright cannot find Chromium, install it or set `PLAYWRIGHT_CHANNEL` to an installed `msedge`/`chrome` browser.
-- If sound is blocked, tap a control and verify the top-right mute setting. Audio is optional and must not prevent interaction.
-- The game does not connect to rooms yet. Stage 2 is the next explicitly approved build stage.
+- Stop another instance if a port is in use; Vite refuses to silently switch ports.
+- Run `npm run build -w shared` if shared imports cannot resolve after installation.
+- Hosted connection failure: check `VITE_SERVER_URL` was set before the frontend build, the backend is awake, and `CLIENT_ORIGINS` exactly matches your frontend origin.
+- Player disconnect: reconnect within 20 seconds to restore the seat. After that, join with a new identity. Host transfers immediately to the longest-connected remaining player.
+- Same identity in two tabs: the newer connection takes over, and the old tab explains where the player went.
+- Restart/expiry: rooms are intentionally not restored. Create a new room.
+- Room full or game underway: use the Watch option. Spectators can react but cannot change gameplay or see private data.
+- Sound: tap a control, check personal mute and the host's room-sound setting. Audio failure never blocks a room action.
+- Start is disabled in this lobby release. Persona, Password and Crack Race are Stage 3; there is no hidden setting to enable an unfinished phase.
 
-Do not enter a real password, OTP, bank detail or account credential anywhere in the game.
+Never enter a real password, OTP, bank detail or account credential.

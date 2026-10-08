@@ -16,6 +16,7 @@ import './styles.css';
 const Landing = lazy(() => import('./pages/Landing'));
 const Join = lazy(() => import('./pages/Join'));
 const Gallery = lazy(() => import('./pages/Gallery'));
+const Lobby = lazy(() => import('./pages/Lobby'));
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -61,6 +62,7 @@ function App() {
     document.getElementById('page-heading')?.focus({ preventScroll: true });
   }, [route]);
   const path = route.split('?')[0];
+  const roomRoute = path?.match(/^\/(room|screen|watch)\/([A-Za-z]{4})$/);
   return (
     <LazyMotion features={domAnimation}>
       <MotionConfig reducedMotion="user">
@@ -143,6 +145,18 @@ function App() {
                     <Join route={route} navigate={navigate} />
                   ) : path === '/components' ? (
                     <Gallery />
+                  ) : roomRoute ? (
+                    <Lobby
+                      code={roomRoute[2]!.toUpperCase()}
+                      mode={
+                        roomRoute[1] === 'room'
+                          ? 'player'
+                          : roomRoute[1] === 'screen'
+                            ? 'screen'
+                            : 'watch'
+                      }
+                      navigate={navigate}
+                    />
                   ) : (
                     <div className="page-container">
                       <ErrorState
@@ -174,7 +188,7 @@ function App() {
               >
                 Design system
               </a>
-              <span className="build-label">FOUNDATION / V0.1</span>
+              <span className="build-label">LOBBY / V0.2</span>
             </div>
           </footer>
           <Modal

@@ -11,11 +11,16 @@ export type Sound =
   | 'siren'
   | 'victory';
 const sounds = new Map<Sound, Howl>();
+let roomSoundEnabled = true;
+export function setRoomSoundEnabled(enabled: boolean) {
+  roomSoundEnabled = enabled;
+  if (!enabled) silenceAudio();
+}
 export async function playSound(name: Sound) {
-  if (usePreferences.getState().muted) return;
+  if (usePreferences.getState().muted || !roomSoundEnabled) return;
   try {
     const { Howl } = await import('howler');
-    if (usePreferences.getState().muted) return;
+    if (usePreferences.getState().muted || !roomSoundEnabled) return;
     let sound = sounds.get(name);
     if (!sound) {
       sound = new Howl({

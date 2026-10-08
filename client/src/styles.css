@@ -1639,6 +1639,13 @@ input[type='range'] {
 .skip-link:focus {
   transform: translateY(0);
 }
+.skip-link:not(:focus) {
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  padding: 0;
+}
 @keyframes cursor {
   0%,
   49% {

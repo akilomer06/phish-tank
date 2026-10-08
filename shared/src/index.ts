@@ -161,7 +161,10 @@ export type ErrorCode =
   | 'ALREADY_SUBMITTED'
   | 'TOO_LATE'
   | 'RATE_LIMITED'
-  | 'NOT_READY';
+  | 'NOT_READY'
+  | 'ALREADY_IN_ROOM'
+  | 'SESSION_REPLACED'
+  | 'FEATURE_UNAVAILABLE';
 export type Ack<T = undefined> =
   | { ok: true; data: T }
   | { ok: false; error: { code: ErrorCode; message: string } };
@@ -253,6 +256,7 @@ export type PublicPhaseState =
   | { phase: 'RESULTS'; ranking: string[]; reports: SecurityReport[] };
 /** Public snapshots exclude tokens, passwords, guess answers and unrevealed authors. */
 export interface RoomSnapshot {
+  capabilities: { gameplay: boolean; bots: boolean };
   code: string;
   hostId: string;
   players: PublicPlayer[];
@@ -303,6 +307,7 @@ export type ClientToServerEvents = {
   ) => void;
 };
 export interface ServerToClientEvents {
+  'session:replaced': () => void;
   'room:state': (state: RoomSnapshot) => void;
   'player:state': (state: OwnState) => void;
   'room:expired': () => void;

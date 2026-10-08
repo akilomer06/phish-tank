@@ -65,7 +65,7 @@ test('join validates, normalizes code, saves the profile and preserves it after 
   await page
     .getByRole('button', { name: 'Fake passwords only. Got it.' })
     .click();
-  await page.getByRole('button', { name: 'Save player profile' }).click();
+  await page.getByRole('button', { name: 'Join room', exact: true }).click();
   await expect(
     page.getByText('Enter all 4 letters of your room code.'),
   ).toBeVisible();
@@ -74,14 +74,8 @@ test('join validates, normalizes code, saves the profile and preserves it after 
   await expect(page.getByLabel('Room code letter 4')).toHaveValue('E');
   await page.getByLabel('Your alias').fill(' Byte Bandit ');
   await page.getByRole('button', { name: 'Choose fox avatar' }).click();
-  await page.getByRole('button', { name: 'Save player profile' }).click();
-  await expect(
-    page.getByRole('dialog', { name: 'Your alter ego is saved.' }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('dialog').getByText(/Connecting to TIDE/),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Keep this identity' }).click();
+  await page.getByRole('button', { name: 'Join room', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Room not found');
   await page.reload();
   await expect(page.getByLabel('Your alias')).toHaveValue('Byte Bandit');
   await expect(
@@ -99,7 +93,7 @@ test('join validates, normalizes code, saves the profile and preserves it after 
   });
 });
 
-test('create route saves an identity without faking a room', async ({
+test('create route creates a live room with the saved identity', async ({
   page,
 }) => {
   await page.goto('/');
@@ -109,12 +103,12 @@ test('create route saves an identity without faking a room', async ({
     .click();
   await expect(page.getByLabel('Room code letter 1')).toHaveCount(0);
   await page.getByLabel('Your alias').fill('Host');
-  await page.getByRole('button', { name: 'Save player profile' }).click();
+  await page.getByRole('button', { name: 'Create room', exact: true }).click();
+  await expect(page).toHaveURL(/\/room\/[A-Z]{4}$/);
   await expect(
-    page
-      .getByRole('dialog')
-      .getByText(/Creating a live room will be available in Stage 2/),
+    page.getByRole('heading', { name: 'Host', exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start game' })).toBeDisabled();
 });
 
 test('room code supports individual keys, backspace, arrows and a code link', async ({
@@ -142,7 +136,7 @@ test('alias rejects markup and invalid input stays editable', async ({
     .getByRole('button', { name: 'Fake passwords only. Got it.' })
     .click();
   await page.getByLabel('Your alias').fill('<script>');
-  await page.getByRole('button', { name: 'Save player profile' }).click();
+  await page.getByRole('button', { name: 'Create room', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Use letters');
   await expect(page.getByLabel('Your alias')).toBeFocused();
   await page.getByLabel('Your alias').fill('Clean Alias');
@@ -270,5 +264,5 @@ test('health endpoint reports the actual foundation stage', async ({
 }) => {
   const response = await request.get('/api/health');
   expect(response.ok()).toBe(true);
-  expect(await response.json()).toEqual({ status: 'ok', stage: 1 });
+  expect(await response.json()).toEqual({ status: 'ok', stage: 2 });
 });

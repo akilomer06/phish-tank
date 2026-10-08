@@ -12,10 +12,11 @@ import {
   profileSchema,
   type Profile,
 } from '@phish-tank/shared';
-import { Avatar, Badge, Button, Card, Modal, Toast } from '../components/ui';
+import { Avatar, Badge, Button, Card, Modal } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { usePreferences } from '../lib/preferences';
 import { playSound } from '../lib/feedback';
+import { ConnectionError, enterRoom, savedSession } from '../lib/room-client';
 
 export default function Join({
   route,
@@ -45,8 +46,16 @@ export default function Join({
       return true;
     }
   });
-  const [review, setReview] = useState(false);
-  const [toast, setToast] = useState('');
+  const [pending, setPending] = useState(false);
+  const [roomError, setRoomError] = useState<ConnectionError | null>(null);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+  const existing = savedSession();
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const nameInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -84,8 +93,9 @@ export default function Join({
     event.preventDefault();
     putCode(index, event.clipboardData.getData('text'));
   }
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
+    if (pending) return;
     const parsed = creating
       ? profileSchema.safeParse({ name, avatar })
       : joinSchema.safeParse({ code: code.join(''), name, avatar });
@@ -102,14 +112,37 @@ export default function Join({
     setErrors({});
     saveProfile({ name: parsed.data.name, avatar: parsed.data.avatar });
     setName(parsed.data.name);
-    setReview(true);
-    void playSound('success');
+    setPending(true);
+    setRoomError(null);
+    try {
+      const session = await enterRoom(
+        { name: parsed.data.name, avatar: parsed.data.avatar },
+        creating ? undefined : code.join(''),
+      );
+      if (active.current) {
+        void playSound('success');
+        navigate(`/room/${session.code}`);
+      }
+    } catch (error) {
+      if (active.current)
+        setRoomError(
+          error instanceof ConnectionError
+            ? error
+            : new ConnectionError(
+                'CONNECTION_FAILED',
+                'Could not enter the room. Please try again.',
+              ),
+        );
+    } finally {
+      if (active.current) setPending(false);
+    }
   }
   return (
     <div className="join-page page-container">
       <Button
         variant="ghost"
         className="back-button"
+        disabled={pending}
         onClick={() => navigate('/')}
       >
         <Icon name="back" size={18} /> Back to the tank
@@ -163,7 +196,13 @@ export default function Join({
             <span className="mono muted">01 / 02</span>
           </div>
           <h2>{creating ? 'Meet your alter ego.' : 'Enter the tank.'}</h2>
-          <form noValidate onSubmit={submit}>
+          <form
+            noValidate
+            onSubmit={(event) => {
+              void submit(event);
+            }}
+            aria-busy={pending}
+          >
             {!creating && (
               <fieldset className="code-field">
                 <legend>
@@ -267,16 +306,43 @@ export default function Join({
                 ))}
               </div>
             </fieldset>
-            <Button type="submit" className="full-width submit-profile">
-              Save player profile <Icon name="arrow" />
+            {roomError && (
+              <div className="room-entry-error" role="alert">
+                <p>{roomError.message}</p>
+                {['GAME_STARTED', 'ROOM_FULL'].includes(roomError.code) && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => navigate(`/watch/${code.join('')}`)}
+                  >
+                    Watch this room <Icon name="eye" />
+                  </Button>
+                )}
+              </div>
+            )}
+            <Button
+              type="submit"
+              className="full-width submit-profile"
+              disabled={pending}
+            >
+              {pending ? 'Connecting…' : creating ? 'Create room' : 'Join room'}{' '}
+              <Icon name="arrow" />
             </Button>
             <p className="foundation-notice">
               <Icon name="code" size={16} />
-              <span>
-                Foundation preview. Live room connections arrive in Stage 2.
-              </span>
+              <span>No accounts. No real secrets. Just your crew.</span>
             </p>
           </form>
+          {existing && (
+            <Button
+              variant="ghost"
+              className="full-width"
+              onClick={() => navigate(`/room/${existing.code}`)}
+              disabled={pending}
+            >
+              Return to room {existing.code}
+            </Button>
+          )}
         </Card>
       </div>
       <Modal
@@ -296,32 +362,6 @@ export default function Join({
           Fake passwords only. Got it. <Icon name="check" />
         </Button>
       </Modal>
-      <Modal
-        open={review}
-        onClose={() => setReview(false)}
-        title="Your alter ego is saved."
-      >
-        <div className="saved-profile">
-          <Avatar emoji={avatar} size="large" />
-          <h3>{name}</h3>
-          <Badge color="cyan">PLAYER PROFILE READY</Badge>
-        </div>
-        <p>
-          Your profile is saved on this device.{' '}
-          {creating ? 'Creating a live room' : `Connecting to ${code.join('')}`}{' '}
-          will be available in Stage 2.
-        </p>
-        <Button
-          className="full-width"
-          onClick={() => {
-            setReview(false);
-            setToast('Profile saved. Looking suspicious already.');
-          }}
-        >
-          Keep this identity <Icon name="check" />
-        </Button>
-      </Modal>
-      {toast && <Toast message={toast} onDismiss={() => setToast('')} />}
     </div>
   );
 }

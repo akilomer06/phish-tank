@@ -6,6 +6,7 @@ import globals from 'globals';
 export default tseslint.config(
   {
     ignores: [
+      '.vercel/**',
       '**/dist/**',
       '**/node_modules/**',
       'playwright-report/**',
