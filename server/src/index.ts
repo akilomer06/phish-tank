@@ -1,5 +1,4 @@
 import express from 'express';
-import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const app = express();
@@ -14,9 +13,7 @@ if (
   process.env.NODE_ENV === 'production' ||
   process.argv.includes('--production')
 ) {
-  const clientPath = fileURLToPath(
-    new URL('../../client/dist', import.meta.url),
-  );
+  const clientPath = path.resolve(__dirname, '../../client/dist');
   app.use(express.static(clientPath));
   app.get('*', (_request, response) =>
     response.sendFile(path.join(clientPath, 'index.html')),
@@ -35,4 +32,8 @@ if (!process.env.VERCEL) {
 }
 
 export default app;
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = app;
+  module.exports.default = app;
+}
 
